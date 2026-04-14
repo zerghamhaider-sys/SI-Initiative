@@ -648,7 +648,7 @@ except Exception as e:
 
 ytd_cols   = [c for c in num_cols if 'ytd' in c.lower()]
 month_cols = [c for c in num_cols if 'ytd' not in c.lower()]
-all_vc     = num_cols
+all_vc     = month_cols   # ← ONLY monthly cols; YTD is a pre-summed col, never add it to totals
 teams = sorted(df[team_col].dropna().unique().tolist())
 sis   = sorted(df[si_col].dropna().unique().tolist())
 
@@ -703,11 +703,11 @@ use_mc = [m for m in sel_months if m in dff.columns]
 # ─────────────────────────────────────────────────────────────────────
 # KPI CARDS
 # ─────────────────────────────────────────────────────────────────────
-tot  = float(dff[all_vc].sum().sum()) if all_vc else 0
+tot  = float(dff[month_cols].sum().sum()) if month_cols else 0
 ytd  = float(dff[ytd_cols].sum().sum()) if ytd_cols else tot
 nzsm = int(dff[team_col].nunique())
-ts   = dff.groupby(team_col)[all_vc].sum().sum(axis=1) if all_vc else pd.Series(dtype=float)
-ss2  = dff.groupby(si_col)[all_vc].sum().sum(axis=1)   if all_vc else pd.Series(dtype=float)
+ts   = dff.groupby(team_col)[month_cols].sum().sum(axis=1) if month_cols else pd.Series(dtype=float)
+ss2  = dff.groupby(si_col)[month_cols].sum().sum(axis=1)   if month_cols else pd.Series(dtype=float)
 tp   = str(ts.idxmax())  if (not ts.empty  and ts.sum()  > 0) else "N/A"
 tsi  = str(ss2.idxmax()) if (not ss2.empty and ss2.sum() > 0) else "N/A"
 tpv  = float(ts.max()) if not ts.empty else 0
