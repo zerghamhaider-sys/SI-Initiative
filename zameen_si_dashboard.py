@@ -1,4 +1,5 @@
 import streamlit as st
+import math
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
@@ -703,11 +704,11 @@ use_mc = [m for m in sel_months if m in dff.columns]
 # ─────────────────────────────────────────────────────────────────────
 # KPI CARDS
 # ─────────────────────────────────────────────────────────────────────
-tot  = float(dff[month_cols].sum().sum()) if month_cols else 0
+tot  = float(dff[use_mc].sum().sum()) if use_mc else 0
 ytd  = float(dff[ytd_cols].sum().sum()) if ytd_cols else tot
 nzsm = int(dff[team_col].nunique())
-ts   = dff.groupby(team_col)[month_cols].sum().sum(axis=1) if month_cols else pd.Series(dtype=float)
-ss2  = dff.groupby(si_col)[month_cols].sum().sum(axis=1)   if month_cols else pd.Series(dtype=float)
+ts   = dff.groupby(team_col)[use_mc].sum().sum(axis=1) if use_mc else pd.Series(dtype=float)
+ss2  = dff.groupby(si_col)[use_mc].sum().sum(axis=1)   if use_mc else pd.Series(dtype=float)
 tp   = str(ts.idxmax())  if (not ts.empty  and ts.sum()  > 0) else "N/A"
 tsi  = str(ss2.idxmax()) if (not ss2.empty and ss2.sum() > 0) else "N/A"
 tpv  = float(ts.max()) if not ts.empty else 0
@@ -821,7 +822,6 @@ with tab1:
             # Add badge label per slice using outside annotations
             total_val = sr.sum()
             cumulative = 0
-            import math
             for idx, (label, val) in enumerate(zip(sr.index, sr.values)):
                 pct = val / total_val
                 # angle of slice midpoint in radians
@@ -842,7 +842,7 @@ with tab1:
                     borderpad=5,
                     align="center",
                 )
-            leg(fig2, ori="v", y=0.5, x=0.82)
+            leg(fig2, ori="v", y=0.5, x=1.0)
             st.plotly_chart(fig2, use_container_width=True)
 
     # Stacked bar
@@ -923,9 +923,9 @@ with tab2:
         fig_m.update_layout(**base(430, r=8, b=70), barmode='group')
         ax(fig_m, -20)
         leg(fig_m, ori="h", y=-0.3, x=0)
-        # Add badge labels for each month group
-        for i, m in enumerate(use_mc):
-            badge_labels_vbar(fig_m, mom.index.tolist(), mom[m].tolist(), shift=6)
+        # Badge labels: show total per ZSM above grouped bars (not per month - avoids overlap)
+        zsm_totals_mom = mom.sum(axis=1)
+        badge_labels_vbar(fig_m, zsm_totals_mom.index.tolist(), zsm_totals_mom.values.tolist(), shift=6)
         st.plotly_chart(fig_m, use_container_width=True)
 
 # ══════════════════════════════════════════════════════
@@ -1038,9 +1038,9 @@ with tab4:
         fig_sz.update_layout(**base(430, r=8, b=70), barmode='group')
         ax(fig_sz, -20)
         leg(fig_sz, ori="h", y=-0.3, x=0)
-        for zsm2 in sz[team_col].unique():
-            sub2 = sz[sz[team_col] == zsm2]
-            badge_labels_vbar(fig_sz, sub2[si_col].tolist(), sub2['Rev'].tolist(), shift=6)
+        # Badge: show total per initiative above grouped bars (sum across ZSMs)
+        si_totals_sz = sz.groupby(si_col)['Rev'].sum()
+        badge_labels_vbar(fig_sz, si_totals_sz.index.tolist(), si_totals_sz.values.tolist(), shift=6)
         st.plotly_chart(fig_sz, use_container_width=True)
 
     st.markdown('<div class="slbl" style="margin-top:0.5rem;">Initiative Summary</div>',
@@ -1058,7 +1058,7 @@ with tab4:
 # ══════════════════════════════════════════════════════
 with tab5:
     st.markdown('<div class="slbl">Full Dataset</div>', unsafe_allow_html=True)
-    fd = {c: "{:,.0f}" for c in all_vc if c in dff.columns}
+    fd = {c: "{:,.0f}" for c in num_cols if c in dff.columns}
     st.dataframe(dff.style.format(fd), use_container_width=True, height=520)
     st.download_button("⬇  Download CSV", dff.to_csv(index=False).encode(),
                        "zameen_si.csv", "text/csv")
