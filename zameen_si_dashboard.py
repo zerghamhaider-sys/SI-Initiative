@@ -87,8 +87,8 @@ def fmt(n):
 # ── Chart base — clean, no conflicts ─────────────────────────────────
 def base(h=380, l=8, r=80, t=16, b=8):
     return dict(
-        paper_bgcolor = "rgba(0,0,0,0)",
-        plot_bgcolor  = "rgba(0,0,0,0)",
+        paper_bgcolor = T["surface"],
+        plot_bgcolor  = T["surface"],
         font = dict(family="'DM Sans', Inter, sans-serif", color=T["subtext2"], size=11),
         margin = dict(l=l, r=r, t=t, b=b),
         height = h,
@@ -99,22 +99,24 @@ def ax(fig, angle=0, show_x_grid=False):
         gridcolor   = T["grid"] if show_x_grid else "rgba(0,0,0,0)",
         tickcolor   = "rgba(0,0,0,0)",
         linecolor   = T["border"],
-        tickfont    = dict(color=T["subtext2"], size=10),
+        tickfont    = dict(color=T["subtext2"], size=11),
         zeroline    = False,
         tickangle   = angle,
+        showgrid    = show_x_grid,
     )
     fig.update_yaxes(
         gridcolor   = T["grid"],
         tickcolor   = "rgba(0,0,0,0)",
         linecolor   = "rgba(0,0,0,0)",
-        tickfont    = dict(color=T["subtext2"], size=10),
+        tickfont    = dict(color=T["subtext2"], size=11),
         zeroline    = False,
+        showgrid    = True,
     )
     return fig
 
 def leg(fig, ori="v", y=0.5, x=1.02):
     fig.update_layout(legend=dict(
-        bgcolor      = rgba(T["surface"], 0.8),
+        bgcolor      = T["surface2"],
         bordercolor  = T["border"],
         borderwidth  = 1,
         font         = dict(size=10, color=T["text"]),
@@ -355,14 +357,19 @@ div[data-baseweb="popover"] ul {{
   background: {_sf} !important;
   border: 1px solid {_b2} !important;
   border-radius: 10px !important;
-  box-shadow: 0 16px 48px {rgba(_bg, 0.8)} !important;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.4) !important;
 }}
 div[data-baseweb="popover"] li {{
   color: {_tx} !important;
   font-size: 0.82rem !important;
+  background: {_sf} !important;
 }}
 div[data-baseweb="popover"] li:hover {{
   background: {_s2} !important;
+  color: {_tx} !important;
+}}
+div[data-baseweb="popover"] {{
+  background: {_sf} !important;
 }}
 div[data-testid="stMultiSelect"] [data-baseweb="tag"] {{
   background: {T["tag_bg"]} !important;
@@ -371,6 +378,23 @@ div[data-testid="stMultiSelect"] [data-baseweb="tag"] {{
   border-radius: 6px !important;
   font-size: 0.73rem !important;
   font-weight: 600 !important;
+}}
+div[data-testid="stMultiSelect"] [data-baseweb="tag"] span {{
+  color: {T["tag_text"]} !important;
+}}
+div[data-testid="stMultiSelect"] [data-baseweb="tag"] [role="presentation"] {{
+  color: {T["tag_text"]} !important;
+  opacity: 0.7;
+}}
+/* Input text inside multiselect */
+div[data-testid="stMultiSelect"] input {{
+  color: {_tx} !important;
+  background: transparent !important;
+}}
+/* Dropdown option check color */
+div[data-baseweb="popover"] [aria-selected="true"] {{
+  background: {T["tag_bg"]} !important;
+  color: {T["tag_text"]} !important;
 }}
 div[data-testid="stMultiSelect"] label,
 div[data-testid="stSelectbox"] label {{
@@ -440,10 +464,31 @@ div[data-testid="stTextInput"] label {{ display: none !important; }}
    TABLE & SCROLLBAR
    ════════════════════════════════════ */
 div[data-testid="stDataFrame"] {{ border-radius: 10px; overflow: hidden; }}
+div[data-testid="stDataFrame"] iframe {{ background: {_sf} !important; }}
+div[data-testid="stDataFrame"] * {{ color: {_tx} !important; }}
 ::-webkit-scrollbar {{ width: 4px; height: 4px; }}
-::-webkit-scrollbar-track {{ background: {_bg}; }}
+::-webkit-scrollbar-track {{ background: {_s2}; }}
 ::-webkit-scrollbar-thumb {{
   background: {_b2}; border-radius: 10px;
+}}
+
+/* ════════════════════════════════════
+   PLOTLY CHART CONTAINERS
+   ════════════════════════════════════ */
+div[data-testid="stPlotlyChart"] {{
+  background: transparent !important;
+  border-radius: 12px !important;
+  padding: 0 !important;
+}}
+div[data-testid="stPlotlyChart"] > div {{
+  background: transparent !important;
+}}
+/* Force plotly SVG text to use theme color */
+.js-plotly-plot .plotly text {{
+  fill: {_s2t} !important;
+}}
+.js-plotly-plot .plotly .gtitle {{
+  fill: {_tx} !important;
 }}
 
 /* ════════════════════════════════════
@@ -553,51 +598,44 @@ teams = sorted(df[team_col].dropna().unique().tolist())
 sis   = sorted(df[si_col].dropna().unique().tolist())
 
 # ─────────────────────────────────────────────────────────────────────
-# TOPBAR
+# TOPBAR + FILTER — unified single row
 # ─────────────────────────────────────────────────────────────────────
-nl, nr = st.columns([6, 1])
-with nl:
-    st.markdown(f"""
-    <div class="topbar">
-      <div class="topbar-brand">
-        <div class="topbar-mark">Z</div>
-        <div>
-          <div class="topbar-title">Strategic Initiatives Dashboard</div>
-          <div class="topbar-sub">Zameen.com &nbsp;·&nbsp; ZSM Level Revenue Intelligence</div>
-        </div>
-      </div>
-      <div class="topbar-right">
-        <div class="live-badge"><div class="live-dot"></div>Live Sync</div>
-      </div>
-    </div>""", unsafe_allow_html=True)
-with nr:
-    st.markdown("<div style='padding-top:1.05rem;display:flex;flex-direction:column;gap:5px;'>",
-                unsafe_allow_html=True)
-    if st.button("☀" if DM else "🌙", use_container_width=True):
+# Brand block
+st.markdown(f"""
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="topbar-mark">Z</div>
+    <div>
+      <div class="topbar-title">Strategic Initiatives Dashboard</div>
+      <div class="topbar-sub">Zameen.com &nbsp;·&nbsp; ZSM Level Revenue Intelligence</div>
+    </div>
+  </div>
+  <div class="live-badge" style="margin-left:auto;"><div class="live-dot"></div>Live Sync</div>
+</div>""", unsafe_allow_html=True)
+
+# Filters + action buttons in one tight row
+fc1, fc2, fc3, fc4 = st.columns([3, 3, 2, 1], gap="small")
+with fc1:
+    sel_teams = st.multiselect("ZSM / Region", options=teams, default=teams,
+                               placeholder="All ZSMs", label_visibility="visible")
+with fc2:
+    sel_si = st.multiselect("Strategic Initiative", options=sis, default=sis,
+                            placeholder="All Initiatives", label_visibility="visible")
+with fc3:
+    sel_months = st.multiselect("Month", options=month_cols, default=month_cols,
+                                placeholder="All Months", label_visibility="visible") if month_cols else []
+with fc4:
+    st.markdown("<div style='padding-top:1.45rem;display:flex;flex-direction:column;gap:4px;'>", unsafe_allow_html=True)
+    if st.button("☀ / 🌙", use_container_width=True):
         st.session_state.dark_mode = not DM; st.rerun()
-    if st.button("🔄", use_container_width=True):
+    if st.button("🔄 Refresh", use_container_width=True):
         st.cache_data.clear(); st.rerun()
-    if st.button("⏻", use_container_width=True):
+    if st.button("⏻ Logout", use_container_width=True):
         st.session_state.authenticated = False; st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────
-# FILTER BAR
-# ─────────────────────────────────────────────────────────────────────
-with st.container():
-    f1, f2, f3 = st.columns(3, gap="medium")
-    with f1:
-        sel_teams = st.multiselect("ZSM / Region", options=teams, default=teams,
-                                   placeholder="Select ZSMs…")
-    with f2:
-        sel_si = st.multiselect("Strategic Initiative", options=sis, default=sis,
-                                placeholder="Select initiatives…")
-    with f3:
-        sel_months = st.multiselect("Month", options=month_cols, default=month_cols,
-                                    placeholder="Select months…") if month_cols else []
-
 st.markdown(
-    f"<div style='height:1px;background:{T['border']};margin:0.5rem 0 1.3rem;'></div>",
+    f"<div style='height:1px;background:{T['border']};margin:0.3rem 0 1rem;'></div>",
     unsafe_allow_html=True)
 
 sel_teams  = sel_teams  or teams
