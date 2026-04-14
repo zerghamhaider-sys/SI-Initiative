@@ -125,6 +125,61 @@ def leg(fig, ori="v", y=0.5, x=1.02):
     ))
     return fig
 
+def badge_labels_hbar(fig, values, labels, xref="x", yref="y"):
+    """Add pill-badge annotations for horizontal bar outside labels."""
+    for val, lbl in zip(values, labels):
+        fig.add_annotation(
+            x=val, y=lbl,
+            text=f"<b>{fmt(val)}</b>",
+            showarrow=False,
+            xanchor="left",
+            xshift=8,
+            font=dict(size=13, color=T["text"], family="DM Mono"),
+            bgcolor=T["surface2"],
+            bordercolor=T["border"],
+            borderwidth=1,
+            borderpad=5,
+            opacity=1.0,
+        )
+    return fig
+
+def badge_labels_vbar(fig, x_vals, y_vals, shift=10):
+    """Add pill-badge annotations for vertical bar outside labels."""
+    for x, y in zip(x_vals, y_vals):
+        if y <= 0: continue
+        fig.add_annotation(
+            x=x, y=y,
+            text=f"<b>{fmt(y)}</b>",
+            showarrow=False,
+            yanchor="bottom",
+            yshift=shift,
+            font=dict(size=12, color=T["text"], family="DM Mono"),
+            bgcolor=T["surface2"],
+            bordercolor=T["border"],
+            borderwidth=1,
+            borderpad=4,
+            opacity=1.0,
+        )
+    return fig
+
+def badge_labels_scatter(fig, x_vals, y_vals):
+    """Add pill-badge annotations above scatter/line points."""
+    for x, y in zip(x_vals, y_vals):
+        fig.add_annotation(
+            x=x, y=y,
+            text=f"<b>{fmt(y)}</b>",
+            showarrow=False,
+            yanchor="bottom",
+            yshift=14,
+            font=dict(size=13, color=T["text"], family="DM Mono"),
+            bgcolor=T["surface2"],
+            bordercolor=GREEN,
+            borderwidth=1,
+            borderpad=5,
+            opacity=1.0,
+        )
+    return fig
+
 # ─────────────────────────────────────────────────────────────────────
 # PREMIUM CSS
 # ─────────────────────────────────────────────────────────────────────
@@ -721,17 +776,10 @@ with tab1:
                 line=dict(width=0),
                 opacity=0.92,
             ),
-            # Labels outside with monospace font for alignment
-            text=[fmt(v) for v in tr2.values],
-            textposition='outside',
-            cliponaxis=False,
-            textfont=dict(
-                color=T["text"], size=14,
-                family="'DM Mono', monospace"
-            ),
             hovertemplate="<b>%{y}</b><br>Revenue: <b>%{x:,.0f}</b><extra></extra>",
         ))
-        fig.update_layout(**base(380, r=100))
+        badge_labels_hbar(fig, tr2.values, tr2.index.tolist())
+        fig.update_layout(**base(380, r=140))
         ax(fig)
         leg(fig)
         st.plotly_chart(fig, use_container_width=True)
@@ -791,7 +839,7 @@ with tab1:
                 text=labels,
                 textposition='inside',
                 insidetextanchor='middle',
-                textfont=dict(color='white', size=12, family="DM Mono"),
+                textfont=dict(color='white', size=11, family="DM Mono"),
                 hovertemplate=f"<b>{si}</b><br>%{{x}}: <b>%{{y:,.0f}}</b><extra></extra>",
             ))
         fig5.update_layout(**base(340, r=8, b=60), barmode='stack')
@@ -813,7 +861,7 @@ with tab2:
         # Area fill
         fig3.add_trace(go.Scatter(
             x=use_mc, y=mt.values,
-            mode='lines+markers+text',
+            mode='lines+markers',
             name='Total Revenue',
             line=dict(color=GREEN, width=3, shape='spline', smoothing=0.8),
             marker=dict(size=11, color=GREEN,
@@ -821,11 +869,9 @@ with tab2:
                         symbol='circle'),
             fill='tozeroy',
             fillcolor=rgba(GREEN, 0.07),
-            text=[fmt(v) for v in mt.values],
-            textposition="top center",
-            textfont=dict(color=T["text"], size=13, family="DM Mono"),
             hovertemplate="<b>%{x}</b><br>Revenue: <b>%{y:,.0f}</b><extra></extra>",
         ))
+        badge_labels_scatter(fig3, use_mc, mt.values)
         for i, si in enumerate(dff[si_col].unique()):
             vals2 = dff[dff[si_col] == si][use_mc].sum()
             if vals2.sum() == 0: continue
@@ -850,16 +896,14 @@ with tab2:
             fig_m.add_trace(go.Bar(
                 name=m, x=mom.index, y=mom[m],
                 marker=dict(color=PAL[i % len(PAL)], line=dict(width=0), opacity=0.9),
-                # Only show label if tall enough to avoid overlap
-                text=[fmt(v) if v > 0 else '' for v in mom[m]],
-                textposition='outside',
-                cliponaxis=False,
-                textfont=dict(color=T["text"], size=12, family="DM Mono"),
                 hovertemplate=f"<b>{m}</b> · %{{x}}: <b>%{{y:,.0f}}</b><extra></extra>",
             ))
-        fig_m.update_layout(**base(400, r=8, b=70), barmode='group')
+        fig_m.update_layout(**base(430, r=8, b=70), barmode='group')
         ax(fig_m, -20)
         leg(fig_m, ori="h", y=-0.3, x=0)
+        # Add badge labels for each month group
+        for i, m in enumerate(use_mc):
+            badge_labels_vbar(fig_m, mom.index.tolist(), mom[m].tolist(), shift=6)
         st.plotly_chart(fig_m, use_container_width=True)
 
 # ══════════════════════════════════════════════════════
@@ -930,13 +974,10 @@ with tab4:
             y=sir.index,
             orientation='h',
             marker=dict(color=PAL[:len(sir)], line=dict(width=0), opacity=0.92),
-            text=[fmt(v) for v in sir.values],
-            textposition='outside',
-            cliponaxis=False,
-            textfont=dict(color=T["text"], size=14, family="DM Mono"),
             hovertemplate="<b>%{y}</b>: <b>%{x:,.0f}</b><extra></extra>",
         ))
-        fig_si.update_layout(**base(400, r=110))
+        badge_labels_hbar(fig_si, sir.values, sir.index.tolist())
+        fig_si.update_layout(**base(400, r=140))
         ax(fig_si)
         leg(fig_si)
         st.plotly_chart(fig_si, use_container_width=True)
@@ -952,15 +993,14 @@ with tab4:
             fig_sz.add_trace(go.Bar(
                 x=sub[si_col], y=sub['Rev'], name=str(zsm)[:18],
                 marker=dict(color=PAL[i % len(PAL)], line=dict(width=0), opacity=0.9),
-                text=[fmt(v) for v in sub['Rev']],
-                textposition='outside',
-                cliponaxis=False,
-                textfont=dict(color=T["text"], size=12, family="DM Mono"),
                 hovertemplate=f"<b>{zsm}</b><br>%{{x}}: <b>%{{y:,.0f}}</b><extra></extra>",
             ))
-        fig_sz.update_layout(**base(400, r=8, b=70), barmode='group')
+        fig_sz.update_layout(**base(430, r=8, b=70), barmode='group')
         ax(fig_sz, -20)
         leg(fig_sz, ori="h", y=-0.3, x=0)
+        for zsm2 in sz[team_col].unique():
+            sub2 = sz[sz[team_col] == zsm2]
+            badge_labels_vbar(fig_sz, sub2[si_col].tolist(), sub2['Rev'].tolist(), shift=6)
         st.plotly_chart(fig_sz, use_container_width=True)
 
     st.markdown('<div class="slbl" style="margin-top:0.5rem;">Initiative Summary</div>',
