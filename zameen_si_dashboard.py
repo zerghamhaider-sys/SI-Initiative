@@ -797,26 +797,51 @@ with tab1:
                     colors=PAL[:len(sr)],
                     line=dict(color=T["bg"], width=3)
                 ),
-                textinfo='percent',
-                textfont=dict(color='white', size=13, family="DM Sans"),
-                insidetextorientation='radial',
+                textinfo='none',
                 hovertemplate=(
                     "<b>%{label}</b><br>"
                     "Revenue: <b>%{value:,.0f}</b><br>"
                     "Share: <b>%{percent}</b><extra></extra>"
                 ),
-                pull=[0.03] + [0] * (len(sr) - 1),  # slight pull on top segment
+                pull=[0.03] + [0] * (len(sr) - 1),
             ))
             fig2.update_layout(
                 **base(380, r=120),
                 annotations=[dict(
-                    text=f"<b>{fmt(sr.sum())}</b><br>"
-                         f"<span style='font-size:10px'>Total</span>",
+                    text=f"<b>{fmt(sr.sum())}</b><br><span style='font-size:10px'>Total</span>",
                     x=0.38, y=0.5,
                     font=dict(size=16, color=T["text"], family="DM Mono"),
-                    showarrow=False
+                    showarrow=False,
+                    bgcolor=T["surface2"],
+                    bordercolor=T["border"],
+                    borderwidth=1,
+                    borderpad=8,
                 )]
             )
+            # Add badge label per slice using outside annotations
+            total_val = sr.sum()
+            cumulative = 0
+            import math
+            for idx, (label, val) in enumerate(zip(sr.index, sr.values)):
+                pct = val / total_val
+                # angle of slice midpoint in radians
+                mid_angle = math.radians(90 - 360 * (cumulative + pct / 2))
+                cumulative += pct
+                r_pos = 0.82  # outside the donut
+                ax_pos = 0.38 + r_pos * math.cos(mid_angle) * 0.38
+                ay_pos = 0.5  + r_pos * math.sin(mid_angle) * 0.5
+                fig2.add_annotation(
+                    x=ax_pos, y=ay_pos,
+                    xref="paper", yref="paper",
+                    text=f"<b>{fmt(val)}</b><br>{pct*100:.1f}%",
+                    showarrow=False,
+                    font=dict(size=11, color=T["text"], family="DM Mono"),
+                    bgcolor=T["surface2"],
+                    bordercolor=PAL[idx % len(PAL)],
+                    borderwidth=1,
+                    borderpad=5,
+                    align="center",
+                )
             leg(fig2, ori="v", y=0.5, x=0.82)
             st.plotly_chart(fig2, use_container_width=True)
 
@@ -831,18 +856,15 @@ with tab1:
         sis_in_p2 = p2[si_col].unique()
         for i, si in enumerate(sis_in_p2):
             sub = p2[p2[si_col] == si]
-            # Only show labels on segments large enough
-            labels = [fmt(v) if v >= (p2['Rev'].max() * 0.05) else '' for v in sub['Rev']]
             fig5.add_trace(go.Bar(
                 x=sub[team_col], y=sub['Rev'], name=si,
                 marker=dict(color=PAL[i % len(PAL)], line=dict(width=0), opacity=0.92),
-                text=labels,
-                textposition='inside',
-                insidetextanchor='middle',
-                textfont=dict(color='white', size=11, family="DM Mono"),
                 hovertemplate=f"<b>{si}</b><br>%{{x}}: <b>%{{y:,.0f}}</b><extra></extra>",
             ))
-        fig5.update_layout(**base(340, r=8, b=60), barmode='stack')
+        # Badge: show total per ZSM above the full stack
+        zsm_totals = p2.groupby(team_col)['Rev'].sum()
+        badge_labels_vbar(fig5, zsm_totals.index.tolist(), zsm_totals.values.tolist(), shift=8)
+        fig5.update_layout(**base(360, r=8, b=60), barmode='stack')
         ax(fig5, -15)
         leg(fig5, ori="h", y=-0.35, x=0)
         st.plotly_chart(fig5, use_container_width=True)
@@ -928,9 +950,6 @@ with tab3:
                         [0.75, GREEN],
                         [1.00, "#80FFB8"],
                     ],
-                    text=[[fmt(v) for v in row] for row in ph.values],
-                    texttemplate="%{text}",
-                    textfont=dict(size=13, color="white", family="DM Mono"),
                     hovertemplate=(
                         "<b>%{y}</b> · <b>%{x}</b><br>"
                         "Revenue: <b>%{z:,.0f}</b><extra></extra>"
@@ -945,6 +964,27 @@ with tab3:
                         thickness=12,
                     ),
                 ))
+                # Badge annotations per cell
+                n_rows, n_cols = ph.values.shape
+                max_val = ph.values.max() if ph.values.max() > 0 else 1
+                for ri in range(n_rows):
+                    for ci in range(n_cols):
+                        val = ph.values[ri, ci]
+                        if val <= 0:
+                            continue
+                        intensity = val / max_val
+                        txt_color = "white" if intensity > 0.3 else T["text"]
+                        fig4.add_annotation(
+                            x=ph.columns[ci],
+                            y=ph.index[ri],
+                            text=f"<b>{fmt(val)}</b>",
+                            showarrow=False,
+                            font=dict(size=11, color=txt_color, family="DM Mono"),
+                            bgcolor=rgba(T["surface"], 0.55),
+                            bordercolor=rgba(T["border"], 0.6),
+                            borderwidth=1,
+                            borderpad=4,
+                        )
                 fig4.update_layout(**base(480))
                 ax(fig4)
                 st.plotly_chart(fig4, use_container_width=True)
